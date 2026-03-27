@@ -1,0 +1,42 @@
+[project]
+name = "addaxai-webui"
+authors = ["PetervanLunteren"]
+channels = ["conda-forge"]
+platforms = ["linux-64", "osx-arm64", "osx-64", "win-64"]
+
+[dependencies]
+python = "3.12.*"
+nodejs = "20.*"
+pip = ">=23.0"
+uvicorn = ">=0.22.0"
+alembic = ">=1.11.0"
+
+[tasks]
+# --- Setup Tasks ---
+# Clean up old data (equivalent to step 2)
+clean = "rm -rf ~/AddaxAI backend/venv frontend/node_modules"
+
+# Install Python deps and run migrations (equivalent to step 3)
+setup-backend = { cmd = "pip install -r backend/requirements.txt && cd backend && PYTHONPATH=. alembic upgrade head" }
+
+# Install Node deps (equivalent to step 4)
+setup-frontend = { cmd = "cd frontend && npm install" }
+
+# Full setup alias
+install = { depends_on = ["setup-backend", "setup-frontend"] }
+
+# --- Execution Tasks ---
+# Start Backend (Terminal 1)
+backend = "cd backend && uvicorn app.main:app --reload"
+
+# Start Frontend (Terminal 2)
+frontend = "cd frontend && npm run dev"
+
+# Watch Logs (Terminal 3)
+logs = "tail -f ~/AddaxAI/logs/backend.log"
+
+# Optional: Run both (if you have 'concurrently' or similar installed)
+dev = "concurrently \"pixi run backend\" \"pixi run frontend\""
+
+[environments]
+default = { solve_group = "default" }
