@@ -1,42 +1,43 @@
-[project]
+[workspace]
 name = "addaxai-webui"
-authors = ["PetervanLunteren"]
+authors = ["Peter van Lunteren <peter@addaxdatascience.com>"]
 channels = ["conda-forge"]
 platforms = ["linux-64", "osx-arm64", "osx-64", "win-64"]
 
 [dependencies]
-python = "3.12.*"
-nodejs = "20.*"
-pip = ">=23.0"
-uvicorn = ">=0.22.0"
-alembic = ">=1.11.0"
+python = ">=3.12,<3.14"
+nodejs = ">=20"
+pip = ">=23"
+uvicorn = ">=0.42"
+alembic = ">=1.18.4"
+honcho = ">=1.1.0"
 
 [tasks]
-# --- Setup Tasks ---
-# Clean up old data (equivalent to step 2)
-clean = "rm -rf ~/AddaxAI backend/venv frontend/node_modules"
+# --- Setup ---
+clean = "rm -rf backend/venv frontend/node_modules"
 
-# Install Python deps and run migrations (equivalent to step 3)
-setup-backend = { cmd = "pip install -r backend/requirements.txt && cd backend && PYTHONPATH=. alembic upgrade head" }
+pip-install = { cmd = "pip install -r requirements.txt", cwd = "backend" }
+migrate = { cmd = "alembic upgrade head", cwd = "backend", env = { PYTHONPATH = "." }, depends-on = ["pip-install"] }
+setup-backend = { depends-on = ["migrate"]}
 
-# Install Node deps (equivalent to step 4)
-setup-frontend = { cmd = "cd frontend && npm install" }
+setup-frontend = { cmd = "npm install", cwd = "frontend" }
+setup-procfile = """
+printf 'backend: pixi run backend \nifrontend: pixi run frontend' > Procfile
+"""
 
-# Full setup alias
-install = { depends_on = ["setup-backend", "setup-frontend"] }
+install = { depends-on = ["setup-backend", "setup-frontend", "setup-procfile"] }
 
-# --- Execution Tasks ---
-# Start Backend (Terminal 1)
-backend = "cd backend && uvicorn app.main:app --reload"
+# --- Run ---
 
-# Start Frontend (Terminal 2)
-frontend = "cd frontend && npm run dev"
+backend = { cmd = "uvicorn app.main:app --reload", cwd = "backend" }
+frontend = { cmd = "npm run dev", cwd = "frontend" }
 
-# Watch Logs (Terminal 3)
-logs = "tail -f ~/AddaxAI/logs/backend.log"
+# Runs backend + frontend in parallel 
+dev = "honcho start"
 
-# Optional: Run both (if you have 'concurrently' or similar installed)
-dev = "concurrently \"pixi run backend\" \"pixi run frontend\""
+[feature.dev.dependencies]
+
 
 [environments]
-default = { solve_group = "default" }
+default = { solve-group = "default" }
+dev = { features = ["dev"], solve-group = "default" }
