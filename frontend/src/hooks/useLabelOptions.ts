@@ -14,6 +14,8 @@ import { projectsApi } from "../api/projects";
 
 export interface LabelOption {
   value: string;
+  /** Latin display name (e.g., "G. camelopardalis"). Falls back to capitalized value. */
+  displayName: string;
   category: "animal" | "person" | "vehicle";
   label: string | null;
   isCustom?: boolean;
@@ -23,9 +25,17 @@ export interface LabelOption {
 }
 
 const GENERAL_OPTIONS: LabelOption[] = [
-  { value: "person", category: "person", label: null },
-  { value: "vehicle", category: "vehicle", label: null },
+  { value: "person", displayName: "Person", category: "person", label: null },
+  { value: "vehicle", displayName: "Vehicle", category: "vehicle", label: null },
 ];
+
+/** Read display_name from the backend taxonomy map, with capitalize fallback. */
+function getDisplayName(
+  rawLabel: string,
+  entry: { display_name?: string | null } | undefined,
+): string {
+  return entry?.display_name || rawLabel.charAt(0).toUpperCase() + rawLabel.slice(1);
+}
 
 /** Build a display string from taxonomy fields, joining non-empty ranks with " > ". */
 function buildTaxonomyCaption(
@@ -63,6 +73,7 @@ export function useLabelOptions(
     queryKey: ["taxonomy", classificationModelId],
     queryFn: () => modelsApi.getTaxonomy(classificationModelId!),
     enabled: hasClassificationModel,
+    staleTime: Infinity,
   });
 
   // Custom labels added by the user for this project
@@ -73,6 +84,7 @@ export function useLabelOptions(
     queryKey: ["custom-labels", projectId],
     queryFn: () => projectsApi.getCustomLabels(projectId),
     enabled: !!projectId,
+    staleTime: Infinity,
   });
 
   // Taxonomy fields for all labels (model + custom)
@@ -82,6 +94,7 @@ export function useLabelOptions(
     queryKey: ["label-taxonomy-map", projectId],
     queryFn: () => projectsApi.getLabelTaxonomyMap(projectId),
     enabled: !!projectId,
+    staleTime: Infinity,
   });
 
   const isLoading =
@@ -96,14 +109,19 @@ export function useLabelOptions(
 
     if (!hasClassificationModel) {
       // Detection-only projects: add "animal" alongside "person" and "vehicle"
-      result.push({ value: "animal", category: "animal", label: null });
+      result.push({
+        value: "animal", displayName: "Animal",
+        category: "animal", label: null,
+      });
     } else if (taxonomy?.all_classes) {
       for (const cls of taxonomy.all_classes) {
+        const entry = taxonomyMap?.[cls];
         result.push({
           value: cls,
+          displayName: getDisplayName(cls, entry),
           category: "animal",
           label: cls,
-          taxonomyCaption: buildTaxonomyCaption(taxonomyMap?.[cls]),
+          taxonomyCaption: buildTaxonomyCaption(entry),
         });
       }
     }
@@ -117,20 +135,24 @@ export function useLabelOptions(
       for (const cl of customLabels) {
         const idx = existingByName.get(cl.name.toLowerCase());
         if (idx !== undefined) {
+          const entry = taxonomyMap?.[cl.name];
           result[idx] = {
             ...result[idx],
             isCustom: true,
             customId: cl.id,
-            taxonomyCaption: buildTaxonomyCaption(taxonomyMap?.[cl.name]) ?? result[idx].taxonomyCaption,
+            displayName: getDisplayName(cl.name, entry),
+            taxonomyCaption: buildTaxonomyCaption(entry) ?? result[idx].taxonomyCaption,
           };
         } else {
+          const entry = taxonomyMap?.[cl.name];
           result.push({
             value: cl.name,
+            displayName: getDisplayName(cl.name, entry),
             category: "animal",
             label: cl.name,
             isCustom: true,
             customId: cl.id,
-            taxonomyCaption: buildTaxonomyCaption(taxonomyMap?.[cl.name]),
+            taxonomyCaption: buildTaxonomyCaption(entry),
           });
           existingByName.set(cl.name.toLowerCase(), result.length - 1);
         }

@@ -6,16 +6,12 @@
 
 - [ ] INVESTIGATE REFACTOR TO RUN SPECIESNET AS A NORMAL CLASSIFACTION MODEL - at the moment SpeciesNet uses its own inference code, whilest the other classification models all share their inference code. That seems like extra complexity. What if we just run SpeciesNet as a 'normal' clasisfication model like all the others? That save a lot of conplexity and if/else statements. Do a full audit on how this would affect the current code base, what needs to be changed and what features would not work then. What are the things that are hard, what pros and cons, etc. I want a full report and everything thought of. I know the current way of running SpeciesNet is by using its internal country + state geofencing, but can we mimick that ourselves by just reading the SpeciesNet sepecific country data and then allowing users to select / deselect labels just like any other classifciation model does? I know this is a great refactor, but I believe it should be thoroughly investigated, since it will make our lives a lot easier in the end. 
 
-
-
-
-
-
+- [ ] Since we now do the exlusion of animals not by renormalizing the the predicitons based on excluded spces like we used to do (lion 70%, bobcat 20%, deer 10% -> lion excluded -> bobcat 667% deer 33%, lion 0%), but by walking up the taxonomy ladder until we find a common anchestor that is included. We now do not need all predictions in the JSON file for all detections anymore. We could do with keeping only the top-1. Agree? If so, would it make sense to trim the JSONs at the end of the analysis step to leave only top-1 (or perhaps top-3?) and then also remove all the labels in the category dicts that we never call? That saves a LOT of disk space for things we would never use. Agree? Does that make sense? And also, since we only need the top-1 predictions, we can regenerate the DB after a species slecetion change, right? 
 
 ## Priority 2
 - [ ] dashboard verification vard, explenation text "Event representatives are one file per event, used for quick review." explain a bit more how that representative is chosen. See event verification guide for more info. 
 
-- [ ] If we do taxonomic rollup, we might get to taxa without common names or model-class-names like "cow" and "equid". What happens then? What do we show the user in the chips and in the UI? Investigate. I want to know the current way of dealing with that and all its fallbacks. 
+- [ ] would it make sense to upgrade the app to use DINOv3 instead of DINOv2?
 
 
 ## Priority 3
@@ -35,25 +31,6 @@
 - [ ] EXPORT OPTIONS - check AddaxAI Connect and copy from there. 
 - [ ]
 
-
-
-
-
 ## Installer
 - [ ] merge all alembic/versions/ into one. We do not have any users yet, so we can make it just the start DB. 
 - [ ] make sure on app istall it installs the default models and their environments (MDv5A and DINOv2-B). 
-
-
-### Add a simple country dropdown if goefencing file exists. Perhaps we can add a tab like structure like "simple" / "full control". 
-
-
-### Improve the verification checkmarks in the grid view of events verification. Should we show pbars for the MaxN files and the all files? SOmething like that? Also make the Verification status filter explicit. Add options for all scenarios, one or more MaxNs verified, etc, etc. 
-
-
-### 
-
-###
-When an excluded species rolls up to an ancestor (e.g., lion -> felidae), this creates a NEW classification_categories entry in the JSON. Should we also persist    
-this to the JSON file on disk (like the existing postprocessing rollup does)
-
-"like the existing postprocessing rollup does"??????

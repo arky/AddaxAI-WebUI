@@ -39,10 +39,20 @@ function formatLabel(name: string): string {
   return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
 }
 
-function TaxonomyCaption({ caption }: { caption?: string | null }) {
+function TaxonomyCaption({
+  commonName,
+  caption,
+}: {
+  commonName?: string | null;
+  caption?: string | null;
+}) {
+  const parts: string[] = [];
+  if (commonName) parts.push(formatLabel(commonName));
+  if (caption) parts.push(caption);
+  const text = parts.length > 0 ? parts.join(" · ") : "no taxonomy";
   return (
     <span className="text-[10px] text-muted-foreground truncate">
-      {caption ?? "no taxonomy"}
+      {text}
     </span>
   );
 }
@@ -126,30 +136,26 @@ export function LabelPicker({
   // Manual filtering
   const searchLower = search.toLowerCase().trim();
 
+  const matchesSearch = (o: LabelOption) =>
+    !searchLower
+    || o.value.toLowerCase().includes(searchLower)
+    || o.displayName.toLowerCase().includes(searchLower);
+
   const filteredPinned = pinnedOptions?.filter(
-    ({ option }) => !searchLower || option.value.toLowerCase().includes(searchLower)
+    ({ option }) => matchesSearch(option)
   );
 
   const generalOptions = options.filter((o) => o.label === null);
   const modelLabels = options.filter((o) => o.label !== null && !o.isCustom);
   const customLabelOpts = options.filter((o) => o.label !== null && o.isCustom);
 
-  const filteredGeneral = generalOptions.filter(
-    (o) => !searchLower || o.value.toLowerCase().includes(searchLower)
-  );
-  const filteredModelLabels = modelLabels.filter(
-    (o) => !searchLower || o.value.toLowerCase().includes(searchLower)
-  );
-  const filteredCustomLabels = customLabelOpts.filter(
-    (o) => !searchLower || o.value.toLowerCase().includes(searchLower)
-  );
+  const filteredGeneral = generalOptions.filter(matchesSearch);
+  const allFilteredModelLabels = modelLabels.filter(matchesSearch);
+  const filteredModelLabels = allFilteredModelLabels.slice(0, 50);
+  const hasMoreModelLabels = allFilteredModelLabels.length > 50;
+  const filteredCustomLabels = customLabelOpts.filter(matchesSearch);
 
-  const hasResults =
-    (filteredPinned && filteredPinned.length > 0) ||
-    filteredGeneral.length > 0 ||
-    filteredModelLabels.length > 0 ||
-    filteredCustomLabels.length > 0;
-  const showAddNew = !!projectId && (!searchLower || !hasResults);
+  const showAddNew = !!projectId;
 
   const handleAddNew = useCallback(() => {
     if (!projectId) return;
@@ -200,7 +206,9 @@ export function LabelPicker({
   const displayLabel = displayName ? formatLabel(displayName) : value ? formatLabel(value) : "Select label...";
   const dotColor = currentOption
     ? getLabelDotColor(currentOption)
-    : undefined;
+    : value
+      ? getSpeciesColor(value)
+      : undefined;
 
   return (
     <>
@@ -208,6 +216,7 @@ export function LabelPicker({
         variant="ghost"
         size="sm"
         className="h-6 px-1.5 gap-1 text-xs font-medium justify-start"
+        title={displayLabel}
         onClick={(e) => {
           e.stopPropagation();
           setOpen(true);
@@ -220,14 +229,14 @@ export function LabelPicker({
           />
         )}
         {!hideLabel && (
-          <span className="truncate max-w-[120px]">{displayLabel}</span>
+          <span className="truncate max-w-[180px]">{displayLabel}</span>
         )}
         <ChevronsUpDown className="h-3 w-3 opacity-50 shrink-0" />
       </Button>
 
       <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogContent
-          className="max-w-md overflow-hidden p-0"
+          className="max-w-xl overflow-hidden p-0"
           onClick={(e) => e.stopPropagation()}
         >
           <DialogTitle className="sr-only">Select label</DialogTitle>
@@ -244,7 +253,7 @@ export function LabelPicker({
                   {filteredPinned.map(({ key, option: opt }) => (
                     <CommandItem
                       key={`pinned-${key}`}
-                      value={`${key}-${opt.value}`}
+                      value={`${key}-${opt.value} ${opt.displayName}`}
                       onSelect={() => handleSelect(opt)}
                       className="odd:bg-muted/40"
                     >
@@ -258,8 +267,8 @@ export function LabelPicker({
                         }}
                       />
                       <div className="flex flex-col min-w-0">
-                        <span>{formatLabel(opt.value)}</span>
-                        <TaxonomyCaption caption={opt.taxonomyCaption} />
+                        <span>{opt.displayName}</span>
+                        <TaxonomyCaption commonName={opt.label} caption={opt.taxonomyCaption} />
                       </div>
                       <Check
                         className={cn(
@@ -278,7 +287,7 @@ export function LabelPicker({
                   {filteredGeneral.map((opt) => (
                     <CommandItem
                       key={opt.value}
-                      value={opt.value}
+                      value={`${opt.value} ${opt.displayName}`}
                       onSelect={() => handleSelect(opt)}
                       className="odd:bg-muted/40"
                     >
@@ -289,8 +298,8 @@ export function LabelPicker({
                         }}
                       />
                       <div className="flex flex-col min-w-0">
-                        <span>{formatLabel(opt.value)}</span>
-                        <TaxonomyCaption caption={opt.taxonomyCaption} />
+                        <span>{opt.displayName}</span>
+                        <TaxonomyCaption commonName={opt.label} caption={opt.taxonomyCaption} />
                       </div>
                       <Check
                         className={cn(
@@ -309,7 +318,7 @@ export function LabelPicker({
                   {filteredModelLabels.map((opt) => (
                     <CommandItem
                       key={opt.value}
-                      value={opt.value}
+                      value={`${opt.value} ${opt.displayName}`}
                       onSelect={() => handleSelect(opt)}
                       className="odd:bg-muted/40"
                     >
@@ -320,8 +329,8 @@ export function LabelPicker({
                         }}
                       />
                       <div className="flex flex-col min-w-0">
-                        <span>{formatLabel(opt.value)}</span>
-                        <TaxonomyCaption caption={opt.taxonomyCaption} />
+                        <span>{opt.displayName}</span>
+                        <TaxonomyCaption commonName={opt.label} caption={opt.taxonomyCaption} />
                       </div>
                       <Check
                         className={cn(
@@ -331,6 +340,11 @@ export function LabelPicker({
                       />
                     </CommandItem>
                   ))}
+                  {hasMoreModelLabels && (
+                    <div className="px-2 py-2 text-center text-[11px] text-muted-foreground">
+                      Showing 50 of {allFilteredModelLabels.length} labels. Type to search.
+                    </div>
+                  )}
                 </CommandGroup>
               )}
 
@@ -340,7 +354,7 @@ export function LabelPicker({
                   {filteredCustomLabels.map((opt) => (
                     <CommandItem
                       key={opt.value}
-                      value={opt.value}
+                      value={`${opt.value} ${opt.displayName}`}
                       onSelect={() => handleSelect(opt)}
                       className="group odd:bg-muted/40"
                     >
@@ -351,8 +365,8 @@ export function LabelPicker({
                         }}
                       />
                       <div className="flex flex-col min-w-0">
-                        <span>{formatLabel(opt.value)}</span>
-                        <TaxonomyCaption caption={opt.taxonomyCaption} />
+                        <span>{opt.displayName}</span>
+                        <TaxonomyCaption commonName={opt.label} caption={opt.taxonomyCaption} />
                       </div>
                       <span className="ml-auto flex items-center gap-0.5 shrink-0">
                         <button
